@@ -2,6 +2,11 @@ import './App.css'
 import { useState } from 'react';
 import CSVReader from 'react-csv-reader'
 import { ExportToCsv } from 'export-to-csv';
+import {
+  Presentation, Slide, Text
+} from 'react-pptx';
+import Preview from "react-pptx/preview";
+
 
 // const getColumn = (
 //   data: string[][],
@@ -43,14 +48,14 @@ type RanksType = {
   [x: string]: EventRanksType;
 };
 
-const calculateRanks = (eventScores: EventScoresType, biggerIsBetter: boolean = true) => {
+const calculateRanks = (eventScores: EventScoresType, highScoreWins: boolean = true) => {
   const ranks: EventRanksType = {};
   const numericalScoredTeams = Object.keys(eventScores)
     .filter(teamNum => typeof eventScores[teamNum] === 'number')
     .sort((teamA, teamB) => {
       const teamAScore = eventScores[teamA] as number;
       const teamBScore = eventScores[teamB] as number;
-      return biggerIsBetter ? (teamBScore - teamAScore) : (teamAScore - teamBScore);
+      return highScoreWins ? (teamBScore - teamAScore) : (teamAScore - teamBScore);
     });
 
   for (let i = 0; i < numericalScoredTeams.length; i++) {
@@ -83,14 +88,35 @@ const App = () => {
   const [ranks, setRanks] = useState<RanksType | null>(null);
   const [viewRanks, setViewRanks] = useState(false);
   const [exportRanks, setExportRanks] = useState<string[][]>([]);
+  const [exportTopSixRanks, setExportTopSixRanks] = useState<string[][]>([]);
 
-  const csvOptions = {
+  const topSixTeams = (eventRanks: EventRanksType) => {
+    return Object.keys(eventRanks)
+      .filter(teamNum => eventRanks[teamNum] <= 6)
+      .sort((teamANum, teamBNum) => {
+        const teamARank = eventRanks[teamANum];
+        const teamBRank = eventRanks[teamBNum];
+        return teamARank - teamBRank;
+      });
+  }
+
+  const rankCSVOptions = {
     fieldSeparator: ',',
     quoteStrings: '"',
     decimalSeparator: '.',
     useTextFile: false,
     useBom: true,
     filename: 'ranks',
+    showColumnHeaders: false
+  };
+
+  const topSixCSVOptions = {
+    fieldSeparator: ',',
+    quoteStrings: '"',
+    decimalSeparator: '.',
+    useTextFile: false,
+    useBom: true,
+    filename: 'top',
     showColumnHeaders: false
   };
 
@@ -143,7 +169,8 @@ const App = () => {
 
           const allRanks: RanksType = {};
           for (const eventName of Object.keys(scoresByEvent)) {
-            const eventRanks = calculateRanks(scoresByEvent[eventName], true);
+            const lowScoreWins = eventName.includes('Scrambler') || eventName.includes('Robot Tour');
+            const eventRanks = calculateRanks(scoresByEvent[eventName], !lowScoreWins);
             allRanks[eventName] = eventRanks;
           }
           setRanks(allRanks);
@@ -159,8 +186,17 @@ const App = () => {
             }
             exportData.push(teamRanks);
           }
-          console.log(exportData);
+
+          // console.log(exportData);
           setExportRanks(exportData);
+
+          const exportTopSixData: string[][] = [];
+          for (const eventName of Object.keys(allRanks)) {
+            const topTeams = topSixTeams(allRanks[eventName]).map(teamNum => `${teamNum} - ${teamsByNumber[teamNum]}`);
+            exportTopSixData.push([eventName, ...topTeams]);
+          }
+          console.log(exportTopSixData);
+          setExportTopSixRanks(exportTopSixData);
         }
       }
     />
@@ -197,10 +233,36 @@ const App = () => {
     }
 
     {ranks && exportRanks.length > 0 && <button onClick={() => {
-      const csvExporter = new ExportToCsv(csvOptions);
-
+      const csvExporter = new ExportToCsv(rankCSVOptions);
       csvExporter.generateCsv(exportRanks);
     }}>Export Ranks</button>}
+
+    {ranks && exportTopSixRanks.length > 0 && <button onClick={() => {
+      const csvExporter = new ExportToCsv(topSixCSVOptions);
+      csvExporter.generateCsv(exportTopSixRanks);
+    }}>Export Top Six Teams</button>}
+
+    {ranks && teams && (<Preview>
+      <Presentation>
+        {Object.keys(ranks).map(eventName => {
+          return (<Slide key={eventName}>
+            <Text
+              style={{
+                x: 1, y: 1, w: 10, h: 0.5,
+                fontSize: 24
+              }}
+            >{eventName}</Text>
+            {topSixTeams(ranks[eventName]).map(
+              (teamNum, index) =>
+                <Text style={{
+                  x: 1, y: 2 + (index * 0.4), w: 10, h: 0.2,
+                  fontSize: 16
+                }}>{`${index + 1}. ${teamNum} - ${teams[teamNum]}`}</Text>
+            )}
+          </Slide>);
+        })}
+      </Presentation>
+    </Preview>)}
   </main>
 }
 
