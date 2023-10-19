@@ -1,0 +1,23 @@
+main {
+  margin: 24px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+}
+
+h2 {
+  margin-bottom: 0;
+}
+
+button {
+  margin: 16px 0;
+  padding: 8px;
+}
+
+table,
+th,
+td {
+  border: 1px solid black;
+  border-collapse: collapse;
+  text-align: center;
+  padding: 2px;
+  font-size: 10px;
+}
